@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: eugedebe/python-app
   pullPolicy: IfNotPresent
-  tag: e851fc
+  tag: 5aadec
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
