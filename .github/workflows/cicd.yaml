@@ -27,13 +27,13 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ricardoandre9707/python-app:${{ env.COMMIT_ID }}
+          tags: eugedebe/python-app:${{ env.COMMIT_ID }}
     outputs:
       commit_id: ${{ env.COMMIT_ID }}
 
   cd:
     needs: ci
-    runs-on: self-hosted
+    runs-on: arc-runner-set
     steps:
 
       - uses: actions/checkout@v3
