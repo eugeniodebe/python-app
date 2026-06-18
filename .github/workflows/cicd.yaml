@@ -6,6 +6,7 @@ on:
       - src/**
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   ci:
@@ -38,31 +39,37 @@ jobs:
 
       - uses: actions/checkout@v3
 
-      - name: Modify values file
+      - name: Update image tag in values.yaml
         shell: bash
+        env:
+          COMMIT_ID: ${{ needs.ci.outputs.commit_id }}
         run: |
-          echo ${{needs.ci.outputs.commit_id}}
-          pip install yq
-          yq -Yi '.image.tag = "${{needs.ci.outputs.commit_id}}"' charts/python-app/values.yaml
+          case "$(uname -m)" in
+            aarch64|arm64) ARCH=arm64 ;;
+            *) ARCH=amd64 ;;
+          esac
+          curl -sL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" -o "$RUNNER_TEMP/yq"
+          chmod +x "$RUNNER_TEMP/yq"
+          "$RUNNER_TEMP/yq" -i '.image.tag = strenv(COMMIT_ID)' charts/python-app/values.yaml
 
       - name: Commit changes
         uses: EndBug/add-and-commit@v9
         with:
-          message: 'Updates values.yaml with commit ${{needs.ci.outputs.commit_id}}'
+          add: 'charts/python-app/values.yaml'
+          message: 'Updates values.yaml with commit ${{ needs.ci.outputs.commit_id }}'
 
-      - name: Install argocd
+      - name: Argo CD sync
         shell: bash
         run: |
-          curl -ksSL -o argocd https://argocd-server.argocd/download/argocd-linux-amd64
-          chmod +x argocd
-          sudo mv ./argocd /usr/local/bin/argocd
-
-      - name: Argocd app sync
-        shell: bash
-        run: |
-          argocd login argocd-server.argocd \
-            --insecure  \
+          case "$(uname -m)" in
+            aarch64|arm64) ARCH=arm64 ;;
+            *) ARCH=amd64 ;;
+          esac
+          curl -ksSL -o "$RUNNER_TEMP/argocd" "https://argocd-server.argocd/download/argocd-linux-${ARCH}"
+          chmod +x "$RUNNER_TEMP/argocd"
+          "$RUNNER_TEMP/argocd" login argocd-server.argocd \
+            --insecure \
             --grpc-web \
             --username admin \
-            --password  ${{ secrets.ARGOCD_PASSWORD }}
-          argocd app sync python-app
+            --password "${{ secrets.ARGOCD_PASSWORD }}"
+          "$RUNNER_TEMP/argocd" app sync python-app
